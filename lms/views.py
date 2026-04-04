@@ -1,10 +1,15 @@
 from rest_framework import viewsets, generics
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import PermissionDenied
 
-from lms.models import Course, Lesson
+from lms.models import Course, Lesson, Subscription
 from lms.serializers import CourseSerializer, LessonSerializer
 from lms.permissions import IsModerator, IsOwner, IsOwnerOrReadOnly
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
+from django.shortcuts import get_object_or_404
+from lms.serializers import SubscriptionSerializer
 
 
 class CourseViewSet(viewsets.ModelViewSet):
@@ -78,3 +83,48 @@ class LessonDeleteAPIView(generics.DestroyAPIView):
     def get_queryset(self):
         return Lesson.objects.all()
 
+
+class SubscriptionAPIView(APIView):
+    """Эндпоинт для управления подпиской на курс"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        course_id = request.data.get("course_id")
+
+        if not course_id:
+            return Response(
+                {"error": "Необходимо указать course_id"},
+                status=400
+            )
+
+        course = get_object_or_404(Course, id=course_id)
+
+        subscription = Subscription.objects.filter(
+            user=user,
+            course=course
+        )
+
+        if subscription.exists():
+            # Если подписка есть — удаляем
+            subscription.delete()
+            message = "Подписка удалена"
+            is_subscribed = False
+        else:
+            # Если подписки нет — создаем
+            Subscription.objects.create(user=user, course=course)
+            message = "Подписка добавлена"
+            is_subscribed = True
+
+        return Response({
+            "message": message,
+            "is_subscribed": is_subscribed,
+            "course_id": course.id,
+            "course_name": course.name
+        })
+
+    def get(self, request, *args, **kwargs):
+        """Опционально: получить список подписок текущего пользователя"""
+        subscriptions = Subscription.objects.filter(user=request.user)
+        serializer = SubscriptionSerializer(subscriptions, many=True)
+        return Response(serializer.data)

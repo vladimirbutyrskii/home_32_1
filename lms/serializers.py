@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from lms.models import Course, Lesson
+from lms.models import Course, Lesson, Subscription
 from lms.validators import validate_youtube_link
 
 
@@ -20,6 +20,7 @@ class LessonSerializer(serializers.ModelSerializer):
 class CourseSerializer(serializers.ModelSerializer):
     lessons_count = serializers.IntegerField(source="lessons.count", read_only=True)
     lessons = LessonSerializer(source="lessons", many=True, read_only=True)
+    is_subscribed = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -31,22 +32,25 @@ class CourseSerializer(serializers.ModelSerializer):
             "lessons_count",
             "lessons",
             "owner",
+            "is_subscribed",  # добавлено
         ]
         read_only_fields = ("owner",)
 
-    def validate_description(self, value):
-        """
-        Проверка описания курса на наличие запрещенных ссылок
-        """
-        if value:
-            youtube_pattern = r'^(https?://)?(www\.)?(youtube\.com|youtu\.be)/'
-            # Простая проверка: ищем любые URL в тексте
-            import re
-            urls = re.findall(r'https?://[^\s]+', value)
-            for url in urls:
-                if not re.match(youtube_pattern, url):
-                    raise serializers.ValidationError(
-                        "В описании курса обнаружена ссылка на сторонний ресурс. "
-                        "Разрешены только ссылки на youtube.com."
-                    )
-        return value
+    def get_is_subscribed(self, obj):
+        """Проверяет, подписан ли текущий пользователь на курс"""
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            return Subscription.objects.filter(
+                user=request.user,
+                course=obj
+            ).exists()
+        return False
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subscription
+        fields = ["id", "user", "course", "created_at"]
+        read_only_fields = ["id", "user", "created_at"]
+
+
