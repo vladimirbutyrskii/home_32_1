@@ -4,6 +4,7 @@ from rest_framework.filters import OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
 
 from users.models import User, Payment
+from users.paginators import PaymentPaginator
 from users.serializers import (
     UserProfileSerializer,
     UserDetailSerializer,
@@ -45,6 +46,7 @@ class PaymentListView(generics.ListAPIView):
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_fields = ["paid_lesson", "paid_course", "type"]
     ordering_fields = ["payment_date", "amount"]
+    pagination_class = PaymentPaginator
 
     def get_queryset(self):
         user = self.request.user

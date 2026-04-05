@@ -25,7 +25,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         elif self.action in ["update", "partial_update"]:
             self.permission_classes = [IsAuthenticated, IsModerator | IsOwner]
         elif self.action == "destroy":
-            self.permission_classes = [IsAuthenticated, ~IsModerator, IsOwner]
+            self.permission_classes = [IsAuthenticated, IsOwner]
         else:
             self.permission_classes = [IsAuthenticated]
         return [permission() for permission in self.permission_classes]
@@ -78,7 +78,7 @@ class LessonUpdateAPIView(generics.UpdateAPIView):
 
 class LessonDeleteAPIView(generics.DestroyAPIView):
     serializer_class = LessonSerializer
-    permission_classes = [IsAuthenticated, ~IsModerator, IsOwner]
+    permission_classes = [IsAuthenticated, IsOwner]
 
     def get_queryset(self):
         return Lesson.objects.all()
